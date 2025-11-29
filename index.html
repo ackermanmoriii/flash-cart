@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Master Mind</title>
+    
+    <link rel="icon" href="data:,">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Vazirmatn:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #8b5cf6; /* Violet */
+            --primary-dark: #7c3aed;
+            --secondary: #ec4899; /* Pink */
+            --bg: #0f172a;
+            --sidebar-bg: #1e293b;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --code-bg: #020617;
+            --input-bg: #0f172a;
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden; 
+        }
+
+        /* --- Global Toggle Button (Visible Desktop & Mobile) --- */
+        .global-menu-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1200; /* Above sidebar and overlays */
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .global-menu-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* --- Login Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(8px);
+        }
+
+        .login-box {
+            background: var(--card-bg);
+            padding: 3rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--border);
+            text-align: center;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: bounceIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* --- Sidebar (Library) --- */
+        aside {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            padding-top: 5rem; /* Space for toggle button */
+            flex-shrink: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 1100;
+        }
+
+        /* Desktop Collapsed State */
+        aside.desktop-collapsed {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            overflow: hidden;
+            border-right: none;
+        }
+
+        .sidebar-header {
+            margin-bottom: 1.5rem;
+            white-space: nowrap; /* Prevent breaking on collapse */
+        }
+
+        .user-badge {
+            font-size: 0.85rem;
+            color: var(--secondary);
+            background: rgba(236, 72, 153, 0.1);
+            padding: 6px 10px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            display: inline-block;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 1rem;
+            min-width: 200px; /* Prevent squash during anim */
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 10px 10px 35px;
+            font-size: 0.95rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+        }
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .deck-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            min-width: 200px;
+        }
+
+        .deck-item {
+            padding: 14px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid transparent;
+            font-weight: 500;
+        }
+
+        .deck-item:hover {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--text);
+            border-color: var(--border);
+            transform: translateX(5px);
+        }
+
+        .deck-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+            border: none;
+        }
+
+        .new-deck-btn {
+            margin-top: auto;
+            background: transparent;
+            border: 2px dashed var(--border);
+            color: var(--text-muted);
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 600;
+            min-width: 200px;
+        }
+        .new-deck-btn:hover { border-color: var(--primary); color: var(--primary); background: rgba(139, 92, 246, 0.05); }
+
+        /* --- Main Content --- */
+        main {
+            flex: 1;
+            padding: 2rem;
+            padding-top: 5rem; /* Space for toggle button */
+            overflow-y: auto;
+            position: relative;
+            transition: 0.3s;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.2;
+        }
+
+        /* --- Control Panel --- */
+        .control-panel {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--border);
+            margin-bottom: 3rem;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.4);
+        }
+
+        .input-row { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        .input-group { flex: 1; margin-bottom: 1.2rem; }
+        .input-group label { display: block; margin-bottom: 0.6rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.8rem;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-family: inherit;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
+
+        /* File Upload */
+        .file-drop-area {
+            border: 2px dashed var(--border);
+            border-radius: 0.8rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .file-drop-area:hover { border-color: var(--primary); background: rgba(139, 92, 246, 0.05); }
+        .file-drop-area input {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+        }
+
+        button.btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            font-size: 1.1rem;
+        }
+        button.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 20px -3px rgba(0, 0, 0, 0.3); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* --- Flashcard Grid --- */
+        .flashcard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2.5rem;
+            padding-bottom: 4rem;
+        }
+
+        /* Flip Card Styles */
+        .flashcard-container {
+            background-color: transparent;
+            width: 100%;
+            height: 450px; 
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            transform-style: preserve-3d;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .flashcard-container.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        /* Front specific style */
+        .flashcard-front {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border-bottom: 4px solid var(--secondary);
+        }
+        
+        .flashcard-front::after {
+            content: 'Tap to Reveal ✨';
+            position: absolute;
+            bottom: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--secondary);
+            font-weight: 600;
+            opacity: 0.8;
+            animation: pulse 2s infinite;
+        }
+
+        /* Back specific style */
+        .flashcard-back {
+            transform: rotateY(180deg);
+            background: linear-gradient(145deg, #2e1065, #1e1b4b);
+            border: 1px solid var(--primary);
+            text-align: left; 
+        }
+
+        /* Content Styling */
+        .card-content {
+            font-size: 1.25rem;
+            line-height: 1.8;
+            width: 100%;
+            font-weight: 400;
+        }
+
+        .card-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Persian & Math Corrections */
+        .rtl-text {
+            direction: rtl;
+            font-family: 'Vazirmatn', sans-serif;
+            text-align: right;
+        }
+
+        .math-isolate {
+            direction: ltr !important;
+            unicode-bidi: isolate !important;
+            display: inline-block;
+            margin: 0 4px;
+        }
+
+        pre {
+            background: var(--code-bg);
+            padding: 15px;
+            border-radius: 10px;
+            overflow-x: auto;
+            max-width: 100%;
+            border: 1px solid #334155;
+            text-align: left;
+            direction: ltr !important; 
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        /* Backdrop Overlay for Mobile */
+        .mobile-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1050;
+            display: none; 
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .mobile-overlay.active { display: block; opacity: 1; }
+
+        /* Animations */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* Chart Canvas Size */
+        canvas { max-width: 100%; max-height: 280px; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        .hidden { display: none !important; }
+
+        /* --- MEDIA QUERIES --- */
+        
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            aside {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                transform: translateX(-100%); /* Start hidden */
+                box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+                margin-left: 0 !important; /* Override desktop collapse */
+                width: 280px !important; /* Override desktop collapse */
+                padding-top: 5rem;
+            }
+            
+            aside.mobile-open {
+                transform: translateX(0);
+            }
+
+            main {
+                padding: 1.5rem;
+                padding-top: 5rem; 
+            }
+
+            h1 { font-size: 2rem; }
+
+            .input-row { flex-direction: column; gap: 0; }
+            .input-group { margin-bottom: 1rem; }
+
+            .flashcard-grid { grid-template-columns: 1fr; }
+            .flashcard-container { height: 400px; }
+            
+            .control-panel { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="global-menu-btn" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="modal-overlay" id="loginModal">
+        <div class="login-box">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🧠</div>
+            <h2 style="margin-top:0; color: var(--text);">Welcome Back</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem; line-height: 1.5;">
+                Enter your username to access your secure,<br>personalized study library.
+            </p>
+            <div class="input-group">
+                <input type="text" id="usernameInput" placeholder="Username (e.g., student_01)" style="text-align:center; font-size:1.1rem;">
+            </div>
+            <button class="btn-primary" onclick="loginUser()">Access Library</button>
+        </div>
+    </div>
+
+    <aside id="appSidebar" class="hidden">
+        <div class="sidebar-header">
+            <h2 style="margin:0; font-size: 1.3rem; color: var(--text); display:flex; align-items:center; gap:10px;">
+                <i class="fa-solid fa-layer-group" style="color:var(--primary)"></i> Library
+            </h2>
+            <div style="margin-top:10px;">
+                <span class="user-badge" id="displayUsername"></span>
+            </div>
+        </div>
+        
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="deckSearch" placeholder="Search titles..." onkeyup="filterDecks()">
+        </div>
+
+        <ul class="deck-list" id="deckList">
+            <li style="color:var(--text-muted); font-size:0.9rem; padding:10px;">Loading...</li>
+        </ul>
+        
+        <button class="new-deck-btn" onclick="showGenerator()">
+            <i class="fa-solid fa-plus"></i> Create New Deck
+        </button>
+    </aside>
+
+    <main id="appMain" class="hidden">
+        <header>
+            <h1>⚡ Gemini Master Mind</h1>
+            <p style="color: var(--text-muted); font-size:1.1rem;">Interactive Learning • Math Ready • Chart Visualization</p>
+        </header>
+
+        <div class="control-panel" id="controlPanel">
+            <div class="input-row">
+                <div class="input-group">
+                    <label><i class="fa-solid fa-key"></i> Gemini API Key</label>
+                    <input type="password" id="apiKey" placeholder="Enter API Key" value="">
+                </div>
+                <div class="input-group">
+                    <label><i class="fa-solid fa-tag"></i> Deck Title (Required)</label>
+                    <input type="text" id="deckTitle" placeholder="e.g., Quantum Physics, React Hooks">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label><i class="fa-solid fa-pen-nib"></i> Content / Code / JS Chart Config</label>
+                <textarea id="promptInput" rows="4" placeholder="Paste text to summarize OR raw JS chart code (e.g., { type: 'bar', data: ... })"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label><i class="fa-solid fa-file-arrow-up"></i> Upload Materials</label>
+                <div class="file-drop-area" id="dropArea">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 5px;"></i>
+                    <p style="margin: 0; color: var(--text-muted); font-size:0.9rem;">Drag & drop PDF, Images, TXT</p>
+                    <input type="file" id="fileInput" multiple>
+                    <div id="fileList" style="margin-top: 10px; font-size: 0.9rem; color: var(--primary);"></div>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="generateBtn" onclick="generateFlashcards()">
+                <span class="loader" id="loader"></span>
+                <span id="btnText">Generate Flashcards</span>
+            </button>
+        </div>
+
+        <div id="deckHeader" style="display:none; margin-bottom: 1.5rem; align-items: center; justify-content: space-between;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <button onclick="showGenerator()" style="background:var(--card-bg); border:1px solid var(--border); color:var(--text); padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; transition:0.2s;">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <h2 id="currentDeckTitle" style="margin:0; font-size:1.8rem; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></h2>
+            </div>
+        </div>
+
+        <div id="flashcardContainer" class="flashcard-grid"></div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+        // --- Configuration ---
+        const MODEL_NAME = "gemini-2.5-flash"; 
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGpbsMgRs69TXmuE2mmTfsH6mXOK1E-eY",
+            authDomain: "test-e4f8b.firebaseapp.com",
+            databaseURL: "https://test-e4f8b-default-rtdb.firebaseio.com",
+            projectId: "test-e4f8b",
+            storageBucket: "test-e4f8b.firebasestorage.app",
+            messagingSenderId: "798536829942",
+            appId: "1:798536829942:web:e264891846adb51cf515d7",
+            measurementId: "G-B8C5DHZ72C"
+        };
+
+        // --- Firebase Init ---
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        // --- State ---
+        let currentUser = null;
+        let decksRef = null;
+        let uploadedFiles = [];
+        let allDecksData = {}; 
+
+        // --- User Authentication Logic ---
+        window.loginUser = function() {
+            const username = document.getElementById('usernameInput').value.trim();
+            if(!username) { alert("Please enter a username."); return; }
+
+            // Sanitize username
+            currentUser = username.replace(/[.#$/[\]]/g, "_");
+            
+            // Set References
+            decksRef = ref(database, `users/${currentUser}/decks`);
+
+            // UI Update
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('appSidebar').classList.remove('hidden');
+            document.getElementById('appMain').classList.remove('hidden');
+            document.getElementById('displayUsername').innerText = `@${username}`;
+
+            // Initialize Listener
+            initDeckListener();
+        };
+
+        // --- UNIFIED SIDEBAR TOGGLE LOGIC ---
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('appSidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            // Check if Mobile or Desktop based on overlay display property (via CSS media query logic)
+            // Or simpler: check window width
+            const isMobile = window.innerWidth <= 768;
+
+            if (isMobile) {
+                // Mobile Logic: Toggle Overlay Class
+                sidebar.classList.toggle('mobile-open');
+                overlay.classList.toggle('active');
+            } else {
+                // Desktop Logic: Toggle Collapse Class
+                sidebar.classList.toggle('desktop-collapsed');
+            }
+        };
+
+        // --- Sidebar & Search Logic ---
+        function initDeckListener() {
+            onValue(decksRef, (snapshot) => {
+                allDecksData = snapshot.val() || {};
+                renderDeckList(allDecksData);
+            });
+        }
+
+        function renderDeckList(data) {
+            const listEl = document.getElementById('deckList');
+            listEl.innerHTML = '';
+            const titles = Object.keys(data);
+
+            if (titles.length > 0) {
+                titles.forEach(title => {
+                    const li = document.createElement('li');
+                    li.className = 'deck-item';
+                    li.innerHTML = `<i class="fa-solid fa-book-open"></i> ${title}`;
+                    li.onclick = () => loadDeck(title, data[title]);
+                    listEl.appendChild(li);
+                });
+            } else {
+                listEl.innerHTML = '<li style="padding:10px; color:var(--text-muted)">No decks found. Create one!</li>';
+            }
+        }
+
+        window.filterDecks = function() {
+            const term = document.getElementById('deckSearch').value.toLowerCase();
+            const filteredData = {};
+            
+            Object.keys(allDecksData).forEach(key => {
+                if (key.toLowerCase().includes(term)) {
+                    filteredData[key] = allDecksData[key];
+                }
+            });
+            renderDeckList(filteredData);
+        };
+
+        // --- Core UI Functions ---
+        window.showGenerator = function() {
+            document.getElementById('controlPanel').style.display = 'block';
+            document.getElementById('deckHeader').style.display = 'none';
+            document.getElementById('flashcardContainer').innerHTML = '';
+            
+            // Mobile: Close sidebar after selection
+            if(window.innerWidth <= 768) {
+                document.getElementById('appSidebar').classList.remove('mobile-open');
+                document.getElementById('mobileOverlay').classList.remove('active');
+            }
+            
+            // Reset Sidebar Active State
+            document.querySelectorAll('.deck-item').forEach(el => el.classList.remove('active'));
+        };
+
+        window.loadDeck = function(title, cardsObj) {
+            document.getElementById('controlPanel').style.display = 'none';
+            document.getElementById('deckHeader').style.display = 'flex';
+            document.getElementById('currentDeckTitle').innerText = title;
+
+            // Mobile: Close sidebar after selection
+            if(window.innerWidth <= 768) {
+                document.getElementById('appSidebar').classList.remove('mobile-open');
+                document.getElementById('mobileOverlay').classList.remove('active');
+            }
+            
+            // Highlight sidebar
+            document.querySelectorAll('.deck-item').forEach(el => {
+                if(el.innerText.includes(title)) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+
+            const container = document.getElementById('flashcardContainer');
+            container.innerHTML = '';
+            
+            if (cardsObj) {
+                Object.values(cardsObj).forEach(card => renderCard(card));
+            }
+        };
+
+        // --- File Handling ---
+        document.getElementById('fileInput').addEventListener('change', async (event) => {
+            const files = event.target.files;
+            const fileListDisplay = document.getElementById('fileList');
+            fileListDisplay.innerHTML = '';
+            uploadedFiles = [];
+
+            for (const file of files) {
+                fileListDisplay.innerHTML += `<div><i class="fa-solid fa-file"></i> ${file.name}</div>`;
+                const base64 = await fileToGenerativePart(file);
+                uploadedFiles.push(base64);
+            }
+        });
+
+        function fileToGenerativePart(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64Data = reader.result.split(',')[1];
+                    resolve({ inlineData: { data: base64Data, mimeType: file.type } });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- GENERATION LOGIC ---
+        window.generateFlashcards = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const textInput = document.getElementById('promptInput').value;
+            const deckTitle = document.getElementById('deckTitle').value.trim();
+            const btn = document.getElementById('generateBtn');
+            const loader = document.getElementById('loader');
+            const btnText = document.getElementById('btnText');
+
+            if (!apiKey) { alert("Please enter your Gemini API Key."); return; }
+            if (!deckTitle) { alert("Please enter a Deck Title."); return; }
+            if (!textInput && uploadedFiles.length === 0) { alert("Please provide text or upload a file."); return; }
+
+            // UI Loading State
+            btn.disabled = true;
+            loader.style.display = "inline-block";
+            btnText.innerText = "Consulting Master Mind...";
+
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ 
+                    model: MODEL_NAME,
+                    generationConfig: { temperature: 0.75 } 
+                });
+
+                // Updated Prompt
+                const systemPrompt = `
+                You are a Friendly Flashcard Master Mind. 
+
+                INPUT ANALYSIS:
+                1. Check if input is RAW JavaScript/JSON for a Chart.js config (e.g., contains 'type:', 'data:').
+                2. If it IS chart code, create a SINGLE flashcard: type="chart", chartConfig={the code object}.
+                3. If regular text/files, generate 6-12 flashcards.
+
+                CONTENT STYLE & TONE (CRITICAL):
+                - **Tone:** Warm, fluent, friendly, and engaging.
+                - **Detail:** Do NOT over-summarize. Provide enough detail for full recall and understanding.
+                - **Visuals:** Use emojis extensively to make it fun! 🚀
+
+                MATH RULES (CRITICAL):
+                - Always use KaTeX/LaTeX format.
+                - Block Math: $$ x^2 $$ 
+                - Inline Math: $ x $
+                - Ensure formulas are cleanly separated.
+
+                JSON OUTPUT STRUCTURE (Array):
+                [
+                    { 
+                        "front": "Concept? ⚛️", 
+                        "back": "Detailed, friendly explanation with Math $x^2$ if needed...", 
+                        "type": "text", 
+                        "chartConfig": null 
+                    },
+                    { 
+                        "front": "Visual Analysis 📊", 
+                        "back": "Key insights...", 
+                        "type": "chart", 
+                        "chartConfig": { "type": "bar", "data": { ... }, "options": { ... } } 
+                    }
+                ]
+
+                LANGUAGE:
+                - Persian input -> Persian output (RTL).
+                - Math -> Always LTR (LaTeX).
+
+                OUTPUT FORMAT:
+                - RAW JSON ONLY. No markdown.
+                `;
+
+                const parts = [systemPrompt, textInput, ...uploadedFiles];
+                const result = await model.generateContent(parts);
+                const response = await result.response;
+                let text = response.text();
+
+                // Clean Response
+                text = text.replace(/```json/g, '').replace(/```/g, '');
+                const firstBracket = text.indexOf('[');
+                const lastBracket = text.lastIndexOf(']');
+                if (firstBracket !== -1 && lastBracket !== -1) {
+                    text = text.substring(firstBracket, lastBracket + 1);
+                } else {
+                    throw new Error("No JSON array found in response");
+                }
+
+                const flashcards = JSON.parse(text);
+
+                // Save to Firebase
+                const safeTitle = deckTitle.replace(/[.#$/[\]]/g, "-"); 
+                const specificDeckRef = ref(database, `users/${currentUser}/decks/${safeTitle}`);
+
+                flashcards.forEach(card => {
+                    push(specificDeckRef, card);
+                });
+
+                alert(`Success! Generated detailed cards for deck: "${deckTitle}"`);
+                
+                // Clear Inputs
+                document.getElementById('promptInput').value = '';
+                uploadedFiles = [];
+                document.getElementById('fileList').innerHTML = '';
+
+            } catch (error) {
+                console.error("Error:", error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = "none";
+                btnText.innerText = "Generate Flashcards";
+            }
+        };
+
+        // --- Rendering Cards ---
+        function renderCard(card) {
+            const container = document.getElementById('flashcardContainer');
+            
+            const isPersianFront = /[\u0600-\u06FF]/.test(card.front);
+            const isPersianBack = /[\u0600-\u06FF]/.test(card.back);
+
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'flashcard-container';
+            cardWrapper.onclick = (e) => {
+                cardWrapper.classList.toggle('flipped');
+            };
+
+            const inner = document.createElement('div');
+            inner.className = 'flashcard-inner';
+
+            // --- FRONT ---
+            const front = document.createElement('div');
+            front.className = `flashcard-front ${isPersianFront ? 'rtl-text' : ''}`;
+            front.innerHTML = `
+                <div class="card-icon">🤔</div>
+                <div class="card-content">${parseContent(card.front)}</div>
+            `;
+
+            // --- BACK ---
+            const back = document.createElement('div');
+            back.className = `flashcard-back ${isPersianBack ? 'rtl-text' : ''}`;
+            
+            let backContentHtml = '';
+
+            if (card.type === 'chart' && card.chartConfig) {
+                const canvasId = 'chart-' + Math.random().toString(36).substr(2, 9);
+                backContentHtml = `
+                    <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+                        <canvas id="${canvasId}"></canvas>
+                        <div class="card-content" style="margin-top:15px; font-size:1rem; opacity:0.9;">${parseContent(card.back)}</div>
+                    </div>`;
+                
+                setTimeout(() => {
+                    const ctx = document.getElementById(canvasId);
+                    if(ctx) {
+                        Chart.defaults.color = '#e2e8f0'; 
+                        Chart.defaults.borderColor = '#334155';
+                        new Chart(ctx, card.chartConfig);
+                    }
+                }, 200);
+            } else {
+                backContentHtml = `
+                    <div class="card-icon">💡</div>
+                    <div class="card-content">${parseContent(card.back)}</div>
+                `;
+            }
+
+            back.innerHTML = backContentHtml;
+
+            inner.appendChild(front);
+            inner.appendChild(back);
+            cardWrapper.appendChild(inner);
+            container.appendChild(cardWrapper);
+
+            renderMath(cardWrapper);
+        }
+
+        function parseContent(text) {
+            if(!text) return "";
+            return marked.parse(text);
+        }
+
+        function renderMath(element) {
+            const contentDivs = element.querySelectorAll('.card-content, p, li');
+            
+            contentDivs.forEach(div => {
+                // Block Math $$...$$
+                 div.innerHTML = div.innerHTML.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
+                    try {
+                        const rendered = katex.renderToString(formula, { displayMode: true, throwOnError: false });
+                        return `<span class="math-isolate">${rendered}</span>`;
+                    } catch (e) { return match; }
+                });
+                
+                // Inline Math $...$
+                div.innerHTML = div.innerHTML.replace(/\$([^\n]+?)\$/g, (match, formula) => {
+                    try {
+                        const rendered = katex.renderToString(formula, { displayMode: false, throwOnError: false });
+                        return `<span class="math-isolate">${rendered}</span>`;
+                    } catch (e) { return match; }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
