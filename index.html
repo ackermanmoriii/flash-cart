@@ -30,6 +30,7 @@
             --border: #334155;
             --code-bg: #020617;
             --input-bg: #0f172a;
+            --danger: #ef4444; /* Red for delete */
         }
 
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
@@ -169,7 +170,7 @@
         }
 
         .deck-item {
-            padding: 14px;
+            padding: 10px 14px;
             margin-bottom: 8px;
             border-radius: 10px;
             cursor: pointer;
@@ -177,9 +178,11 @@
             color: var(--text-muted);
             display: flex;
             align-items: center;
+            justify-content: space-between; /* To push delete btn to right */
             gap: 12px;
             border: 1px solid transparent;
             font-weight: 500;
+            group: ; /* For hover effects */
         }
 
         .deck-item:hover {
@@ -194,6 +197,44 @@
             color: white;
             box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
             border: none;
+        }
+
+        .deck-info {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Delete Button in Sidebar */
+        .delete-deck-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+        }
+        .delete-deck-btn:hover {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .deck-item.active .delete-deck-btn {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .deck-item.active .delete-deck-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .new-deck-btn {
@@ -321,7 +362,8 @@
         .flashcard-container {
             background-color: transparent;
             width: 100%;
-            height: 450px; 
+            /* Fixed height removed. Replaced with min-height and dynamic JS adjustment. */
+            min-height: 400px; 
             perspective: 1000px;
             cursor: pointer;
         }
@@ -343,6 +385,7 @@
 
         .flashcard-front, .flashcard-back {
             position: absolute;
+            top: 0; left: 0;
             width: 100%;
             height: 100%;
             -webkit-backface-visibility: hidden;
@@ -351,10 +394,12 @@
             border-radius: 1.5rem;
             background: var(--card-bg);
             border: 1px solid var(--border);
+            
+            /* --- UPDATED FLEX LAYOUT FOR CONTENT CENTERING --- */
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            /* Removed justify-content: center to prevent top-clipping on overflow */
+            align-items: center; 
             overflow-y: auto;
         }
 
@@ -373,6 +418,8 @@
             font-weight: 600;
             opacity: 0.8;
             animation: pulse 2s infinite;
+            /* Ensure text doesn't overlap instruction */
+            pointer-events: none; 
         }
 
         /* Back specific style */
@@ -381,6 +428,16 @@
             background: linear-gradient(145deg, #2e1065, #1e1b4b);
             border: 1px solid var(--primary);
             text-align: left; 
+        }
+
+        /* Content Wrapper to fix top-clipping */
+        .card-content-wrapper {
+            margin: auto 0; /* Vertical centering that respects overflow */
+            width: 100%;
+            padding-bottom: 1.5rem; /* Space for "Tap to Reveal" on front */
+        }
+        .flashcard-back .card-content-wrapper {
+            padding-bottom: 0;
         }
 
         /* Content Styling */
@@ -495,7 +552,8 @@
             .input-group { margin-bottom: 1rem; }
 
             .flashcard-grid { grid-template-columns: 1fr; }
-            .flashcard-container { height: 400px; }
+            /* Mobile min height */
+            .flashcard-container { min-height: 400px; }
             
             .control-panel { padding: 1.5rem; }
         }
@@ -600,7 +658,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        // Added 'remove' to imports for deletion functionality
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
         // --- Configuration ---
@@ -653,16 +712,12 @@
             const sidebar = document.getElementById('appSidebar');
             const overlay = document.getElementById('mobileOverlay');
             
-            // Check if Mobile or Desktop based on overlay display property (via CSS media query logic)
-            // Or simpler: check window width
             const isMobile = window.innerWidth <= 768;
 
             if (isMobile) {
-                // Mobile Logic: Toggle Overlay Class
                 sidebar.classList.toggle('mobile-open');
                 overlay.classList.toggle('active');
             } else {
-                // Desktop Logic: Toggle Collapse Class
                 sidebar.classList.toggle('desktop-collapsed');
             }
         };
@@ -675,29 +730,20 @@
             });
         }
 
-        // --- UPDATED SORTING LOGIC HERE ---
         function renderDeckList(data) {
             const listEl = document.getElementById('deckList');
             listEl.innerHTML = '';
             
-            // Convert data object to an array of [title, cards] entries
             const deckEntries = Object.entries(data);
 
-            // Sort logic: Extract the earliest card Push ID from each deck and compare them
             deckEntries.sort((a, b) => {
                 const cardsA = a[1];
                 const cardsB = b[1];
-
-                // Get all Push IDs (keys) for the cards and find the earliest one
-                // Firebase Push IDs are lexicographically sortable by time
                 const keysA = cardsA ? Object.keys(cardsA).sort() : [];
                 const keysB = cardsB ? Object.keys(cardsB).sort() : [];
-
-                // Use the first key (earliest card) as the deck's creation timestamp
                 const timestampA = keysA.length > 0 ? keysA[0] : '';
                 const timestampB = keysB.length > 0 ? keysB[0] : '';
 
-                // Descending order (Newest first)
                 if (timestampA < timestampB) return 1;
                 if (timestampA > timestampB) return -1;
                 return 0;
@@ -707,14 +753,47 @@
                 deckEntries.forEach(([title, cards]) => {
                     const li = document.createElement('li');
                     li.className = 'deck-item';
-                    li.innerHTML = `<i class="fa-solid fa-book-open"></i> ${title}`;
+                    // Added onClick for loading, and a separate button for deletion
                     li.onclick = () => loadDeck(title, cards);
+                    
+                    li.innerHTML = `
+                        <div class="deck-info">
+                            <i class="fa-solid fa-book-open"></i> ${title}
+                        </div>
+                        <button class="delete-deck-btn" onclick="deleteDeck(event, '${title}')" title="Delete Deck">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    `;
                     listEl.appendChild(li);
                 });
             } else {
                 listEl.innerHTML = '<li style="padding:10px; color:var(--text-muted)">No decks found. Create one!</li>';
             }
         }
+
+        // --- NEW DELETION LOGIC ---
+        window.deleteDeck = function(event, title) {
+            // Stop bubbling so we don't trigger the "loadDeck" click
+            event.stopPropagation();
+            
+            if(!confirm(`Are you sure you want to permanently delete the deck "${title}"?`)) {
+                return;
+            }
+
+            // Remove from Firebase
+            const deckToDeleteRef = ref(database, `users/${currentUser}/decks/${title}`);
+            remove(deckToDeleteRef)
+                .then(() => {
+                    // UI automatically updates due to onValue listener, but let's reset main view if current deck was deleted
+                    const currentTitle = document.getElementById('currentDeckTitle').innerText;
+                    if(currentTitle === title) {
+                        showGenerator();
+                    }
+                })
+                .catch((error) => {
+                    alert("Error deleting deck: " + error.message);
+                });
+        };
 
         window.filterDecks = function() {
             const term = document.getElementById('deckSearch').value.toLowerCase();
@@ -734,13 +813,11 @@
             document.getElementById('deckHeader').style.display = 'none';
             document.getElementById('flashcardContainer').innerHTML = '';
             
-            // Mobile: Close sidebar after selection
             if(window.innerWidth <= 768) {
                 document.getElementById('appSidebar').classList.remove('mobile-open');
                 document.getElementById('mobileOverlay').classList.remove('active');
             }
             
-            // Reset Sidebar Active State
             document.querySelectorAll('.deck-item').forEach(el => el.classList.remove('active'));
         };
 
@@ -749,14 +826,13 @@
             document.getElementById('deckHeader').style.display = 'flex';
             document.getElementById('currentDeckTitle').innerText = title;
 
-            // Mobile: Close sidebar after selection
             if(window.innerWidth <= 768) {
                 document.getElementById('appSidebar').classList.remove('mobile-open');
                 document.getElementById('mobileOverlay').classList.remove('active');
             }
             
-            // Highlight sidebar
             document.querySelectorAll('.deck-item').forEach(el => {
+                // Check inner text or data matching
                 if(el.innerText.includes(title)) el.classList.add('active');
                 else el.classList.remove('active');
             });
@@ -819,7 +895,6 @@
                     generationConfig: { temperature: 0.75 } 
                 });
 
-                // Updated Prompt
                 const systemPrompt = `
                 You are a Friendly Flashcard Master Mind. 
 
@@ -924,9 +999,12 @@
             // --- FRONT ---
             const front = document.createElement('div');
             front.className = `flashcard-front ${isPersianFront ? 'rtl-text' : ''}`;
+            // Added card-content-wrapper to help with margin: auto centering
             front.innerHTML = `
-                <div class="card-icon">🤔</div>
-                <div class="card-content">${parseContent(card.front)}</div>
+                <div class="card-content-wrapper">
+                    <div class="card-icon">🤔</div>
+                    <div class="card-content">${parseContent(card.front)}</div>
+                </div>
             `;
 
             // --- BACK ---
@@ -938,7 +1016,7 @@
             if (card.type === 'chart' && card.chartConfig) {
                 const canvasId = 'chart-' + Math.random().toString(36).substr(2, 9);
                 backContentHtml = `
-                    <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+                    <div class="card-content-wrapper" style="display:flex; justify-content:center; align-items:center; flex-direction:column;">
                         <canvas id="${canvasId}"></canvas>
                         <div class="card-content" style="margin-top:15px; font-size:1rem; opacity:0.9;">${parseContent(card.back)}</div>
                     </div>`;
@@ -953,8 +1031,10 @@
                 }, 200);
             } else {
                 backContentHtml = `
-                    <div class="card-icon">💡</div>
-                    <div class="card-content">${parseContent(card.back)}</div>
+                    <div class="card-content-wrapper">
+                        <div class="card-icon">💡</div>
+                        <div class="card-content">${parseContent(card.back)}</div>
+                    </div>
                 `;
             }
 
@@ -966,6 +1046,31 @@
             container.appendChild(cardWrapper);
 
             renderMath(cardWrapper);
+
+            // --- DYNAMIC HEIGHT ADJUSTMENT ---
+            // We wait a tiny bit for the DOM to render Math and Text
+            requestAnimationFrame(() => {
+                adjustCardHeight(cardWrapper, front, back);
+            });
+        }
+
+        // Logic to dynamically resize container based on largest content side
+        function adjustCardHeight(container, frontEl, backEl) {
+            // We need to briefly ensure the elements are "measurable" even if rotated
+            // However, with absolute positioning, scrollHeight usually works.
+            
+            // Allow a small delay for KaTeX to render if needed
+            setTimeout(() => {
+                const frontHeight = frontEl.scrollHeight;
+                const backHeight = backEl.scrollHeight;
+                
+                // Get the maximum height required
+                // 400 is the CSS min-height we want to respect
+                const maxH = Math.max(frontHeight, backHeight, 400);
+
+                // Apply this height to the wrapper
+                container.style.height = maxH + 'px';
+            }, 300);
         }
 
         function parseContent(text) {
