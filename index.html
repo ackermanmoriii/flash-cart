@@ -998,7 +998,7 @@
                 if(val) {
                     hasInput = true;
                     if(type === 'chart') {
-                        combinedPrompt += `\n[SEGMENT ${index+1} - RAW JS CODE]:\n${val}\n[INSTRUCTION]: Create a single flashcard of type="chart" using EXACTLY the code provided in this segment. Do not summarize this code, use it for visualization.\n`;
+                        combinedPrompt += `\n[SEGMENT ${index+1} - RAW JS CODE]:\n${val}\n[INSTRUCTION]: Create a single flashcard of type="chart" using EXACTLY the code provided in this segment. Do NOT generate any explanation or text description for this card.\n`;
                     } else {
                         combinedPrompt += `\n[SEGMENT ${index+1} - TEXT]:\n${val}\n`;
                     }
@@ -1028,8 +1028,8 @@
                 The user will provide multiple segments of text or JS code.
                 1. For [SEGMENT - TEXT]: Generate standard Q&A flashcards.
                 2. For [SEGMENT - RAW JS CODE]: Create a dedicated flashcard where:
-                   - Front: "Data Visualization 📊" (or similar title).
-                   - Back: Explanation of what the chart shows.
+                   - Front: "Data Visualization 📊" (or similar title in Persian if input is Persian).
+                   - Back: "" (EMPTY STRING - NO EXPLANATION).
                    - Type: "chart"
                    - ChartConfig: The EXACT raw JS object provided in that segment. 
                    
@@ -1042,7 +1042,7 @@
                 JSON OUTPUT STRUCTURE (Array):
                 [
                     { "front": "Concept?", "back": "Explanation...", "type": "text", "chartConfig": null },
-                    { "front": "Chart Analysis 📊", "back": "This chart demonstrates...", "type": "chart", "chartConfig": { "type": "bar", "data": {...} } }
+                    { "front": "Chart Analysis 📊", "back": "", "type": "chart", "chartConfig": { "type": "bar", "data": {...} } }
                 ]
                 
                 OUTPUT FORMAT: RAW JSON ONLY. No markdown.
@@ -1129,13 +1129,12 @@
 
             if (card.type === 'chart' && card.chartConfig) {
                 const canvasId = 'chart-' + Math.random().toString(36).substr(2, 9);
-                // Fixed: Explicit height container for canvas to allow responsiveness
+                // Modified: Container fills the whole card, no text div, explicitly flexible
                 backContentHtml = `
-                    <div class="card-content-wrapper" style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center;">
-                        <div style="width:100%; height:350px; position:relative;">
+                    <div class="card-content-wrapper" style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; padding: 10px;">
+                        <div style="flex:1; width:100%; position:relative; min-height: 0;">
                              <canvas id="${canvasId}"></canvas>
                         </div>
-                        <div class="card-content" style="margin-top:15px; font-size:1rem; opacity:0.9;">${parseContent(card.back)}</div>
                     </div>`;
                 
                 setTimeout(() => {
@@ -1144,11 +1143,11 @@
                         Chart.defaults.color = '#f1f5f9'; // Ensure text is visible on dark card
                         Chart.defaults.borderColor = '#334155';
                         
-                        // Force responsiveness to fix squashed look
+                        // Force responsiveness and DISABLE maintainAspectRatio to allow it to fill the card
                         const safeConfig = { ...card.chartConfig };
                         if (!safeConfig.options) safeConfig.options = {};
                         safeConfig.options.responsive = true;
-                        safeConfig.options.maintainAspectRatio = false; // Critical for fitting container
+                        safeConfig.options.maintainAspectRatio = false; // CRITICAL FIX for "wrong form"
                         
                         new Chart(ctx, safeConfig);
                     }
