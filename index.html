@@ -31,6 +31,7 @@
             --code-bg: #020617;
             --input-bg: #0f172a;
             --danger: #ef4444; /* Red for delete */
+            --code-block-border: #475569;
         }
 
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
@@ -300,7 +301,7 @@
         .input-group { flex: 1; margin-bottom: 1.2rem; }
         .input-group label { display: block; margin-bottom: 0.6rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        input[type="text"], input[type="password"], textarea {
+        input[type="text"], input[type="password"] {
             width: 100%;
             padding: 1rem;
             border-radius: 0.8rem;
@@ -312,7 +313,92 @@
             font-size: 1rem;
         }
 
-        input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
+
+        /* --- Dynamic Input Segments Styles --- */
+        .segment-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .segment-block {
+            position: relative;
+            animation: fadeInDown 0.3s ease;
+        }
+
+        .segment-block textarea {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.8rem;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text);
+            font-family: inherit;
+            transition: all 0.2s;
+            font-size: 1rem;
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .segment-block.chart-code textarea {
+            background: var(--code-bg);
+            font-family: 'Courier New', Courier, monospace;
+            border-color: var(--primary);
+            color: #a5b4fc;
+        }
+
+        .segment-label {
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            background: var(--card-bg);
+            padding: 0 8px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            border-radius: 4px;
+        }
+        
+        .segment-block.chart-code .segment-label {
+            color: var(--primary);
+        }
+
+        .segment-remove {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .segment-remove:hover { color: var(--danger); }
+
+        .segment-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .segment-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .segment-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--text-muted); }
+        .segment-btn.add-js { border-color: var(--primary); color: var(--primary); }
+        .segment-btn.add-js:hover { background: rgba(139, 92, 246, 0.1); }
 
         /* File Upload */
         .file-drop-area {
@@ -398,7 +484,6 @@
             /* --- UPDATED FLEX LAYOUT FOR CONTENT CENTERING --- */
             display: flex;
             flex-direction: column;
-            /* Removed justify-content: center to prevent top-clipping on overflow */
             align-items: center; 
             overflow-y: auto;
         }
@@ -418,7 +503,6 @@
             font-weight: 600;
             opacity: 0.8;
             animation: pulse 2s infinite;
-            /* Ensure text doesn't overlap instruction */
             pointer-events: none; 
         }
 
@@ -511,8 +595,11 @@
         @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* Chart Canvas Size */
-        canvas { max-width: 100%; max-height: 280px; }
+        /* Chart Canvas Size - Fixed: Removed max-height restriction to allow proper scaling */
+        canvas { 
+            width: 100% !important; 
+            height: 100% !important; 
+        }
         
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
@@ -624,8 +711,23 @@
             </div>
 
             <div class="input-group">
-                <label><i class="fa-solid fa-pen-nib"></i> Content / Code / JS Chart Config</label>
-                <textarea id="promptInput" rows="4" placeholder="Paste text to summarize OR raw JS chart code (e.g., { type: 'bar', data: ... })"></textarea>
+                <label><i class="fa-solid fa-pen-nib"></i> Content & Code Segments</label>
+                
+                <div id="inputSegments" class="segment-container">
+                    <div class="segment-block" data-type="text">
+                        <span class="segment-label">Text Content</span>
+                        <textarea rows="3" placeholder="Paste your study material here..."></textarea>
+                    </div>
+                </div>
+
+                <div class="segment-toolbar">
+                    <button class="segment-btn" onclick="addSegment('text')">
+                        <i class="fa-solid fa-align-left"></i> Add Text
+                    </button>
+                    <button class="segment-btn add-js" onclick="addSegment('chart')">
+                        <i class="fa-brands fa-js"></i> Add JS Chart Code
+                    </button>
+                </div>
             </div>
 
             <div class="input-group">
@@ -658,7 +760,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // Added 'remove' to imports for deletion functionality
         import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
@@ -753,7 +854,6 @@
                 deckEntries.forEach(([title, cards]) => {
                     const li = document.createElement('li');
                     li.className = 'deck-item';
-                    // Added onClick for loading, and a separate button for deletion
                     li.onclick = () => loadDeck(title, cards);
                     
                     li.innerHTML = `
@@ -771,20 +871,15 @@
             }
         }
 
-        // --- NEW DELETION LOGIC ---
         window.deleteDeck = function(event, title) {
-            // Stop bubbling so we don't trigger the "loadDeck" click
             event.stopPropagation();
-            
             if(!confirm(`Are you sure you want to permanently delete the deck "${title}"?`)) {
                 return;
             }
 
-            // Remove from Firebase
             const deckToDeleteRef = ref(database, `users/${currentUser}/decks/${title}`);
             remove(deckToDeleteRef)
                 .then(() => {
-                    // UI automatically updates due to onValue listener, but let's reset main view if current deck was deleted
                     const currentTitle = document.getElementById('currentDeckTitle').innerText;
                     if(currentTitle === title) {
                         showGenerator();
@@ -832,7 +927,6 @@
             }
             
             document.querySelectorAll('.deck-item').forEach(el => {
-                // Check inner text or data matching
                 if(el.innerText.includes(title)) el.classList.add('active');
                 else el.classList.remove('active');
             });
@@ -844,6 +938,21 @@
                 Object.values(cardsObj).forEach(card => renderCard(card));
             }
         };
+
+        // --- NEW: Dynamic Segment Handling ---
+        window.addSegment = function(type) {
+            const container = document.getElementById('inputSegments');
+            const div = document.createElement('div');
+            div.className = `segment-block ${type === 'chart' ? 'chart-code' : ''}`;
+            div.dataset.type = type;
+            
+            div.innerHTML = `
+                <span class="segment-label">${type === 'chart' ? 'JS Chart Config' : 'Text Content'}</span>
+                <button class="segment-remove" onclick="this.parentElement.remove()"><i class="fa-solid fa-times"></i></button>
+                <textarea rows="${type === 'chart' ? '5' : '3'}" placeholder="${type === 'chart' ? 'Paste raw Chart.js JS object (e.g. { type: ..., data: ... })' : 'Enter study text...'}"></textarea>
+            `;
+            container.appendChild(div);
+        }
 
         // --- File Handling ---
         document.getElementById('fileInput').addEventListener('change', async (event) => {
@@ -873,15 +982,32 @@
         // --- GENERATION LOGIC ---
         window.generateFlashcards = async function() {
             const apiKey = document.getElementById('apiKey').value;
-            const textInput = document.getElementById('promptInput').value;
             const deckTitle = document.getElementById('deckTitle').value.trim();
             const btn = document.getElementById('generateBtn');
             const loader = document.getElementById('loader');
             const btnText = document.getElementById('btnText');
 
+            // Gather inputs from segments
+            const segmentElements = document.querySelectorAll('#inputSegments .segment-block');
+            let hasInput = false;
+            let combinedPrompt = "User Content Segments:\n";
+            
+            segmentElements.forEach((el, index) => {
+                const val = el.querySelector('textarea').value.trim();
+                const type = el.dataset.type;
+                if(val) {
+                    hasInput = true;
+                    if(type === 'chart') {
+                        combinedPrompt += `\n[SEGMENT ${index+1} - RAW JS CODE]:\n${val}\n[INSTRUCTION]: Create a single flashcard of type="chart" using EXACTLY the code provided in this segment. Do not summarize this code, use it for visualization.\n`;
+                    } else {
+                        combinedPrompt += `\n[SEGMENT ${index+1} - TEXT]:\n${val}\n`;
+                    }
+                }
+            });
+
             if (!apiKey) { alert("Please enter your Gemini API Key."); return; }
             if (!deckTitle) { alert("Please enter a Deck Title."); return; }
-            if (!textInput && uploadedFiles.length === 0) { alert("Please provide text or upload a file."); return; }
+            if (!hasInput && uploadedFiles.length === 0) { alert("Please provide text, code, or upload a file."); return; }
 
             // UI Loading State
             btn.disabled = true;
@@ -899,46 +1025,30 @@
                 You are a Friendly Flashcard Master Mind. 
 
                 INPUT ANALYSIS:
-                1. Check if input is RAW JavaScript/JSON for a Chart.js config (e.g., contains 'type:', 'data:').
-                2. If it IS chart code, create a SINGLE flashcard: type="chart", chartConfig={the code object}.
-                3. If regular text/files, generate 6-12 flashcards.
+                The user will provide multiple segments of text or JS code.
+                1. For [SEGMENT - TEXT]: Generate standard Q&A flashcards.
+                2. For [SEGMENT - RAW JS CODE]: Create a dedicated flashcard where:
+                   - Front: "Data Visualization 📊" (or similar title).
+                   - Back: Explanation of what the chart shows.
+                   - Type: "chart"
+                   - ChartConfig: The EXACT raw JS object provided in that segment. 
+                   
+                IMPORTANT: Maintain the sequential order of segments in the resulting flashcards.
 
-                CONTENT STYLE & TONE (CRITICAL):
-                - **Tone:** Warm, fluent, friendly, and engaging.
-                - **Detail:** Do NOT over-summarize. Provide enough detail for full recall and understanding.
-                - **Visuals:** Use emojis extensively to make it fun! 🚀
-
-                MATH RULES (CRITICAL):
-                - Always use KaTeX/LaTeX format.
-                - Block Math: $$ x^2 $$ 
-                - Inline Math: $ x $
-                - Ensure formulas are cleanly separated.
-
+                CONTENT STYLE:
+                - Tone: Warm, fluent, friendly, engaging.
+                - Math: Use KaTeX/LaTeX format ($ x^2 $).
+                
                 JSON OUTPUT STRUCTURE (Array):
                 [
-                    { 
-                        "front": "Concept? ⚛️", 
-                        "back": "Detailed, friendly explanation with Math $x^2$ if needed...", 
-                        "type": "text", 
-                        "chartConfig": null 
-                    },
-                    { 
-                        "front": "Visual Analysis 📊", 
-                        "back": "Key insights...", 
-                        "type": "chart", 
-                        "chartConfig": { "type": "bar", "data": { ... }, "options": { ... } } 
-                    }
+                    { "front": "Concept?", "back": "Explanation...", "type": "text", "chartConfig": null },
+                    { "front": "Chart Analysis 📊", "back": "This chart demonstrates...", "type": "chart", "chartConfig": { "type": "bar", "data": {...} } }
                 ]
-
-                LANGUAGE:
-                - Persian input -> Persian output (RTL).
-                - Math -> Always LTR (LaTeX).
-
-                OUTPUT FORMAT:
-                - RAW JSON ONLY. No markdown.
+                
+                OUTPUT FORMAT: RAW JSON ONLY. No markdown.
                 `;
 
-                const parts = [systemPrompt, textInput, ...uploadedFiles];
+                const parts = [systemPrompt, combinedPrompt, ...uploadedFiles];
                 const result = await model.generateContent(parts);
                 const response = await result.response;
                 let text = response.text();
@@ -965,8 +1075,13 @@
 
                 alert(`Success! Generated detailed cards for deck: "${deckTitle}"`);
                 
-                // Clear Inputs
-                document.getElementById('promptInput').value = '';
+                // Clear Inputs (Reset to single text block)
+                document.getElementById('inputSegments').innerHTML = `
+                    <div class="segment-block" data-type="text">
+                        <span class="segment-label">Text Content</span>
+                        <textarea rows="3" placeholder="Paste your study material here..."></textarea>
+                    </div>
+                `;
                 uploadedFiles = [];
                 document.getElementById('fileList').innerHTML = '';
 
@@ -999,7 +1114,6 @@
             // --- FRONT ---
             const front = document.createElement('div');
             front.className = `flashcard-front ${isPersianFront ? 'rtl-text' : ''}`;
-            // Added card-content-wrapper to help with margin: auto centering
             front.innerHTML = `
                 <div class="card-content-wrapper">
                     <div class="card-icon">🤔</div>
@@ -1015,20 +1129,30 @@
 
             if (card.type === 'chart' && card.chartConfig) {
                 const canvasId = 'chart-' + Math.random().toString(36).substr(2, 9);
+                // Fixed: Explicit height container for canvas to allow responsiveness
                 backContentHtml = `
-                    <div class="card-content-wrapper" style="display:flex; justify-content:center; align-items:center; flex-direction:column;">
-                        <canvas id="${canvasId}"></canvas>
+                    <div class="card-content-wrapper" style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="width:100%; height:350px; position:relative;">
+                             <canvas id="${canvasId}"></canvas>
+                        </div>
                         <div class="card-content" style="margin-top:15px; font-size:1rem; opacity:0.9;">${parseContent(card.back)}</div>
                     </div>`;
                 
                 setTimeout(() => {
                     const ctx = document.getElementById(canvasId);
                     if(ctx) {
-                        Chart.defaults.color = '#e2e8f0'; 
+                        Chart.defaults.color = '#f1f5f9'; // Ensure text is visible on dark card
                         Chart.defaults.borderColor = '#334155';
-                        new Chart(ctx, card.chartConfig);
+                        
+                        // Force responsiveness to fix squashed look
+                        const safeConfig = { ...card.chartConfig };
+                        if (!safeConfig.options) safeConfig.options = {};
+                        safeConfig.options.responsive = true;
+                        safeConfig.options.maintainAspectRatio = false; // Critical for fitting container
+                        
+                        new Chart(ctx, safeConfig);
                     }
-                }, 200);
+                }, 300);
             } else {
                 backContentHtml = `
                     <div class="card-content-wrapper">
@@ -1048,27 +1172,16 @@
             renderMath(cardWrapper);
 
             // --- DYNAMIC HEIGHT ADJUSTMENT ---
-            // We wait a tiny bit for the DOM to render Math and Text
             requestAnimationFrame(() => {
                 adjustCardHeight(cardWrapper, front, back);
             });
         }
 
-        // Logic to dynamically resize container based on largest content side
         function adjustCardHeight(container, frontEl, backEl) {
-            // We need to briefly ensure the elements are "measurable" even if rotated
-            // However, with absolute positioning, scrollHeight usually works.
-            
-            // Allow a small delay for KaTeX to render if needed
             setTimeout(() => {
                 const frontHeight = frontEl.scrollHeight;
                 const backHeight = backEl.scrollHeight;
-                
-                // Get the maximum height required
-                // 400 is the CSS min-height we want to respect
                 const maxH = Math.max(frontHeight, backHeight, 400);
-
-                // Apply this height to the wrapper
                 container.style.height = maxH + 'px';
             }, 300);
         }
@@ -1082,7 +1195,6 @@
             const contentDivs = element.querySelectorAll('.card-content, p, li');
             
             contentDivs.forEach(div => {
-                // Block Math $$...$$
                  div.innerHTML = div.innerHTML.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
                     try {
                         const rendered = katex.renderToString(formula, { displayMode: true, throwOnError: false });
@@ -1090,7 +1202,6 @@
                     } catch (e) { return match; }
                 });
                 
-                // Inline Math $...$
                 div.innerHTML = div.innerHTML.replace(/\$([^\n]+?)\$/g, (match, formula) => {
                     try {
                         const rendered = katex.renderToString(formula, { displayMode: false, throwOnError: false });
