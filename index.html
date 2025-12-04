@@ -183,7 +183,6 @@
             gap: 12px;
             border: 1px solid transparent;
             font-weight: 500;
-            /* group: ; REMOVED INVALID CSS PROPERTY */
         }
 
         .deck-item:hover {
@@ -836,6 +835,20 @@
             });
         }
 
+        // --- NEW HELPER: Auto-Format Math for Titles ---
+        function autoFormatMath(text) {
+             if (!text) return "";
+             // If explicit delimiters exist, trust the user
+             if (text.includes('$') || text.includes('\\(')) return text;
+             
+             // If it looks like a formula (contains backslash or equals with other math symbols), wrap it
+             // Simple heuristic: contains backslash or matches typical equation pattern
+             if (text.includes('\\') || (text.includes('=') && text.match(/[+\-*^]/))) {
+                 return `$${text}$`;
+             }
+             return text;
+         }
+
         function renderDeckList(data) {
             const listEl = document.getElementById('deckList');
             listEl.innerHTML = '';
@@ -861,9 +874,12 @@
                     li.className = 'deck-item';
                     li.onclick = () => loadDeck(title, cards);
                     
+                    // UPDATED: Automatically wrap Math-like titles
+                    const displayTitle = autoFormatMath(title);
+
                     li.innerHTML = `
                         <div class="deck-info">
-                            <i class="fa-solid fa-book-open"></i> ${title}
+                            <i class="fa-solid fa-book-open"></i> ${displayTitle}
                         </div>
                         <button class="delete-deck-btn" onclick="deleteDeck(event, '${title}')" title="Delete Deck">
                             <i class="fa-solid fa-trash"></i>
@@ -928,7 +944,8 @@
             document.getElementById('deckHeader').style.display = 'flex';
             
             const titleEl = document.getElementById('currentDeckTitle');
-            titleEl.innerHTML = title; // Use innerHTML to allow math rendering
+            // UPDATED: Auto-wrap math for main header too
+            titleEl.innerHTML = autoFormatMath(title); 
             
             // Render Math in Header
             renderMath(document.getElementById('deckHeader'));
