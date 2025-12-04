@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -183,7 +183,7 @@
             gap: 12px;
             border: 1px solid transparent;
             font-weight: 500;
-            group: ; /* For hover effects */
+            /* group: ; REMOVED INVALID CSS PROPERTY */
         }
 
         .deck-item:hover {
@@ -207,6 +207,11 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        
+        /* Sidebar Math Styling Fix */
+        .deck-info .math-isolate, .deck-info .katex {
+            font-size: 0.9em;
         }
 
         /* Delete Button in Sidebar */
@@ -865,6 +870,8 @@
                         </button>
                     `;
                     listEl.appendChild(li);
+                    // RENDER MATH IN SIDEBAR ITEMS
+                    renderMath(li);
                 });
             } else {
                 listEl.innerHTML = '<li style="padding:10px; color:var(--text-muted)">No decks found. Create one!</li>';
@@ -919,7 +926,12 @@
         window.loadDeck = function(title, cardsObj) {
             document.getElementById('controlPanel').style.display = 'none';
             document.getElementById('deckHeader').style.display = 'flex';
-            document.getElementById('currentDeckTitle').innerText = title;
+            
+            const titleEl = document.getElementById('currentDeckTitle');
+            titleEl.innerHTML = title; // Use innerHTML to allow math rendering
+            
+            // Render Math in Header
+            renderMath(document.getElementById('deckHeader'));
 
             if(window.innerWidth <= 768) {
                 document.getElementById('appSidebar').classList.remove('mobile-open');
@@ -1191,7 +1203,8 @@
         }
 
         function renderMath(element) {
-            const contentDivs = element.querySelectorAll('.card-content, p, li');
+            // UPDATED: Added '.deck-info' and 'h2' to query selector to support Sidebar and Header
+            const contentDivs = element.querySelectorAll('.card-content, p, li, .deck-info, h2');
             
             contentDivs.forEach(div => {
                  div.innerHTML = div.innerHTML.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
